@@ -1,5 +1,5 @@
 # Real-Time Heart Rate Emitter
-Run test for Real-Time Heart Rate project by emitting fake heart data continously every seconds.
+Run test for [Real-Time Heart Rate](https://github.com/danang-id/realtime-heart-rate) project by emitting fake heart data continously every seconds.
 
 ## How to Use
 
@@ -11,6 +11,8 @@ cd realtime-heart-rate-emitter
 npm install
 npm start
 ```
+
+You may edit the target URL (by default `http://localhost:45080`) in the `.env` file.
 
 ## Contribution
 
