@@ -7,9 +7,7 @@ import ora from 'ora'
 
 dotenv.config()
 const baseURL = process.env.BASE_URL || 'http://localhost:45080'
-const io = SocketIO(baseURL, {
-	transports: [ 'websocket' ]
-})
+const io = SocketIO(baseURL)
 const ioSpinner = ora()
 ioSpinner.start('Getting devices list...')
 
