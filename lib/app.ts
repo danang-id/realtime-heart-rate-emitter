@@ -6,8 +6,10 @@ import { prompt, Separator } from 'inquirer'
 import ora from 'ora'
 
 dotenv.config()
-const baseURL = process.env.BASE_URL || 'http://localhost'
-const io = SocketIO(baseURL)
+const baseURL = process.env.BASE_URL || 'http://localhost:45080'
+const io = SocketIO(baseURL, {
+	transports: [ 'websocket' ]
+})
 const ioSpinner = ora()
 ioSpinner.start('Getting devices list...')
 
