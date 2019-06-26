@@ -1,22 +1,28 @@
 #!/usr/bin/env node
 import axios from 'axios'
 import dotenv from 'dotenv'
-import SocketIO from 'socket.io-client'
+import WebSocket from 'ws'
 import { prompt, Separator } from 'inquirer'
 import ora from 'ora'
 
 dotenv.config()
-const baseURL = process.env.BASE_URL || 'http://localhost:45080'
-const io = SocketIO(baseURL)
 const ioSpinner = ora()
+const httpURI = process.env.BASE_URL || 'http://localhost:45080'
+const socketURI = httpURI.replace('http', 'ws')
+let socket: WebSocket;
+
 ioSpinner.start('Getting devices list...')
+
+function createPayload(event: string, data?: any) {
+	return JSON.stringify({ event, data })
+}
 
 function randomPulse(): number {
 	return Math.floor(Math.random() * 45) + 55
 }
 
 function main(deviceId: number) {
-	const client = axios.create({ baseURL })
+	const client = axios.create({ baseURL: httpURI })
 	const clientSpinner = ora()
 	const params = {
 		deviceId,
@@ -41,11 +47,14 @@ function main(deviceId: number) {
 		})
 }
 
-function onRequestDevices(event: string) {
+function onResponseEvent(event: string, data?: any) {
 	switch (event) {
+		case 'onConnection':
+			socket.send(createPayload('onRequestDevices'))
+			break;
 		case 'onRetrieveDevices':
 			ioSpinner.stop()
-			const devices: any[] = arguments[1]
+			const devices: any[] = data
 			const choices: any[] = []
 			for (const device of devices) {
 				choices.push({
@@ -68,7 +77,7 @@ function onRequestDevices(event: string) {
 			}).then((deviceIdAnswer: any) => {
 				const { deviceId } = deviceIdAnswer
 				if (deviceId === -1) {
-					process.exit(1)
+					process.exit(0)
 				}
 				prompt({
 					type: 'input',
@@ -96,14 +105,29 @@ function onRequestDevices(event: string) {
 			})
 			break
 		case 'onError':
-			const message = arguments[1]
+			const message = data.message
 			ioSpinner.fail(message)
+			process.exit(1)
 			break
 	}
 }
 
 function start() {
-	io.emit('onRequestDevices', onRequestDevices)
+	socket = new WebSocket(socketURI)
+	socket.onopen = () => {
+		socket.send(createPayload('onConnection'))
+	}
+	socket.onmessage = payload => {
+		try {
+			const { event, data } = JSON.parse(payload.data.toString());
+			if (!event) {
+				return;
+			}
+			onResponseEvent(event, data);
+		} catch (error) {
+			onResponseEvent('onError', error);
+		}
+	}
 }
 
 start()
