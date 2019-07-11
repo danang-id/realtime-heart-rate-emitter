@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import axios from 'axios'
 import dotenv from 'dotenv'
 import WebSocket from 'ws'
@@ -7,11 +6,8 @@ import ora from 'ora'
 
 dotenv.config()
 const ioSpinner = ora()
-const httpURI = process.env.BASE_URL || 'http://localhost:45080'
-const socketURI = httpURI.replace('http', 'ws')
-let socket: WebSocket;
-
-ioSpinner.start('Getting devices list...')
+let socket: WebSocket
+let httpURI: string
 
 function createPayload(event: string, data?: any) {
 	return JSON.stringify({ event, data })
@@ -51,7 +47,7 @@ function onResponseEvent(event: string, data?: any) {
 	switch (event) {
 		case 'onConnection':
 			socket.send(createPayload('onRequestDevices'))
-			break;
+			break
 		case 'onRetrieveDevices':
 			ioSpinner.stop()
 			const devices: any[] = data
@@ -69,6 +65,8 @@ function onResponseEvent(event: string, data?: any) {
 				value: -1,
 				short: 'Test cancelled'
 			})
+			console.log()
+			console.log('Target Address: ' + httpURI)
 			prompt({
 				type: 'list',
 				name: 'deviceId',
@@ -77,6 +75,7 @@ function onResponseEvent(event: string, data?: any) {
 			}).then((deviceIdAnswer: any) => {
 				const { deviceId } = deviceIdAnswer
 				if (deviceId === -1) {
+					console.log()
 					process.exit(0)
 				}
 				prompt({
@@ -112,21 +111,44 @@ function onResponseEvent(event: string, data?: any) {
 	}
 }
 
+function askAddress() {
+	console.log()
+	prompt({
+		type: 'input',
+		name: 'httpURI',
+		message: 'Enter target address',
+		default: process.env.TARGET_ADDR || 'https://jantung.masgendut.com'
+	}).then((answer: any) => {
+		httpURI = answer.httpURI
+		start()
+	})
+}
+
 function start() {
-	socket = new WebSocket(socketURI)
-	socket.onopen = () => {
-		socket.send(createPayload('onConnection'))
-	}
-	socket.onmessage = payload => {
-		try {
-			const { event, data } = JSON.parse(payload.data.toString());
-			if (!event) {
-				return;
+	if (httpURI !== void 0) {
+		ioSpinner.start('Getting devices list...')
+		if (socket !== void 0) {
+			socket.send(createPayload('onRequestDevices'))
+		} else {
+			const socketURI = httpURI.replace('http', 'ws')
+			socket = new WebSocket(socketURI)
+			socket.onopen = () => {
+				socket.send(createPayload('onConnection'))
 			}
-			onResponseEvent(event, data);
-		} catch (error) {
-			onResponseEvent('onError', error);
+			socket.onmessage = payload => {
+				try {
+					const { event, data } = JSON.parse(payload.data.toString())
+					if (!event) {
+						return
+					}
+					onResponseEvent(event, data)
+				} catch (error) {
+					onResponseEvent('onError', error)
+				}
+			}
 		}
+	} else {
+		askAddress()
 	}
 }
 
