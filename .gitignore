@@ -2,3 +2,5 @@ node_modules
 bin
 dist
 .idea
+session.json
+.env

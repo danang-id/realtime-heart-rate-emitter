@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import WebSocket from 'ws'
@@ -5,19 +7,23 @@ import { prompt, Separator } from 'inquirer'
 import ora from 'ora'
 
 dotenv.config()
+
+const CLIENT_IDENTIFIER = process.env.CLIENT_IDENTIFIER;
+const sessionFileLocation: fs.PathLike = path.join(__dirname, '..', 'session.json');
 const ioSpinner = ora()
+let SESSION_IDENTIFIER: string | null = null;
 let socket: WebSocket
 let httpURI: string
 
 function createPayload(event: string, data?: any) {
-	return JSON.stringify({ event, data })
+	return JSON.stringify({ sessionID: SESSION_IDENTIFIER, event, data })
 }
 
 function randomPulse(): number {
 	return Math.floor(Math.random() * 45) + 55
 }
 
-function main(deviceId: number) {
+function main(deviceId: string) {
 	const client = axios.create({ baseURL: httpURI })
 	const clientSpinner = ora()
 	const params = {
@@ -45,17 +51,17 @@ function main(deviceId: number) {
 
 function onResponseEvent(event: string, data?: any) {
 	switch (event) {
-		case 'onConnection':
-			socket.send(createPayload('onRequestDevices'))
+		case 'CONNECTION':
+			socket.send(createPayload('DEVICES_REQUEST'))
 			break
-		case 'onRetrieveDevices':
+		case 'DEVICES_RETRIEVE':
 			ioSpinner.stop()
 			const devices: any[] = data
 			const choices: any[] = []
 			for (const device of devices) {
 				choices.push({
 					name: device.name,
-					value: device.id,
+					value: device._id,
 					short: device.name
 				})
 			}
@@ -103,10 +109,14 @@ function onResponseEvent(event: string, data?: any) {
 				})
 			})
 			break
-		case 'onError':
+		case 'ERROR':
 			const message = data.message
 			ioSpinner.fail(message)
-			process.exit(1)
+			process.exit(2)
+			break
+		case 'SESSION_INVALID':
+			console.log('Session Identifier Invalid!')
+			process.exit(9)
 			break
 	}
 }
@@ -124,16 +134,48 @@ function askAddress() {
 	})
 }
 
-function start() {
+async function initialiseSession(forceInitialisation: boolean = false) {
+	if (SESSION_IDENTIFIER === null || forceInitialisation) {
+		try {
+			let session = null;
+			if (fs.existsSync(sessionFileLocation)) {
+				const sessionFileContent = fs.readFileSync(sessionFileLocation, { encoding: 'utf-8' })
+				session = JSON.parse(sessionFileContent)
+			} else {
+				const client = axios.create({ baseURL: httpURI })
+				const data = { clientId: CLIENT_IDENTIFIER }
+				const response = await client.post('register-session', data)
+				session = response.data.data
+				const sessionFileContent = JSON.stringify(session, null, 4);
+				fs.writeFileSync(sessionFileLocation, sessionFileContent, { encoding: 'utf-8' })
+			}
+			if (!session._id) {
+				console.log('Session Identifier Invalid!')
+				process.exit(9)
+			}
+			SESSION_IDENTIFIER = session._id;
+		} catch (error) {
+			console.log(error)
+			process.exit(1)
+		}
+	}
+}
+
+async function start() {
 	if (httpURI !== void 0) {
+		await initialiseSession();
 		ioSpinner.start('Getting devices list...')
 		if (socket !== void 0) {
-			socket.send(createPayload('onRequestDevices'))
+			socket.send(createPayload('DEVICES_REQUEST'))
 		} else {
 			const socketURI = httpURI.replace('http', 'ws')
-			socket = new WebSocket(socketURI)
+			socket = new WebSocket(socketURI, {
+				protocolVersion: 13,
+				origin: httpURI,
+				rejectUnauthorized: false
+			})
 			socket.onopen = () => {
-				socket.send(createPayload('onConnection'))
+				socket.send(createPayload('CONNECTION'))
 			}
 			socket.onmessage = payload => {
 				try {
@@ -152,4 +194,4 @@ function start() {
 	}
 }
 
-start()
+start().then()
