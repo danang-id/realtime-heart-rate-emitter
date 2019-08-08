@@ -27,6 +27,14 @@ function randomPulse(): number {
 	return Math.floor(Math.random() * 45) + 55
 }
 
+function onInvalidSessionIdentifier() {
+	ioSpinner.fail('Current Session Identifier Invalid!')
+	console.log('\nPlease restart this app to regenerate a new session identifier.');
+	console.log('If this problem persists, please check CLIENT_IDENTIFIER config in the .env file.');
+	fs.unlinkSync(sessionFileLocation);
+	process.exit(9)
+}
+
 function main(deviceId: string) {
 	const client = axios.create({ baseURL: httpURI, httpsAgent })
 	const clientSpinner = ora()
@@ -119,9 +127,7 @@ function onResponseEvent(event: string, data?: any) {
 			process.exit(2)
 			break
 		case 'SESSION_INVALID':
-			start(true);
-			// console.log('Session Identifier Invalid!')
-			// process.exit(9)
+			onInvalidSessionIdentifier();
 			break
 	}
 }
@@ -151,12 +157,12 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 				const data = { clientId: CLIENT_IDENTIFIER }
 				const response = await client.post('register-session', data)
 				session = response.data.data
-				const sessionFileContent = JSON.stringify(session, null, 4);
-				fs.writeFileSync(sessionFileLocation, sessionFileContent, { encoding: 'utf-8' })
 			}
 			if (!session._id) {
-				console.log('Session Identifier Invalid!')
-				process.exit(9)
+				onInvalidSessionIdentifier();
+			} else {
+				const sessionFileContent = JSON.stringify(session, null, 4);
+				fs.writeFileSync(sessionFileLocation, sessionFileContent, { encoding: 'utf-8' })
 			}
 			SESSION_IDENTIFIER = session._id;
 		} catch (error) {
