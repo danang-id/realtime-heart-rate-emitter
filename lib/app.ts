@@ -1,4 +1,5 @@
 import fs from 'fs'
+import https from 'https'
 import path from 'path'
 import axios from 'axios'
 import dotenv from 'dotenv'
@@ -11,6 +12,9 @@ dotenv.config()
 const CLIENT_IDENTIFIER = process.env.CLIENT_IDENTIFIER;
 const sessionFileLocation: fs.PathLike = path.join(__dirname, '..', 'session.json');
 const ioSpinner = ora()
+const httpsAgent = new https.Agent({
+	rejectUnauthorized: false
+});
 let SESSION_IDENTIFIER: string | null = null;
 let socket: WebSocket
 let httpURI: string
@@ -24,7 +28,7 @@ function randomPulse(): number {
 }
 
 function main(deviceId: string) {
-	const client = axios.create({ baseURL: httpURI })
+	const client = axios.create({ baseURL: httpURI, httpsAgent })
 	const clientSpinner = ora()
 	const params = {
 		deviceId,
@@ -142,7 +146,7 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 				const sessionFileContent = fs.readFileSync(sessionFileLocation, { encoding: 'utf-8' })
 				session = JSON.parse(sessionFileContent)
 			} else {
-				const client = axios.create({ baseURL: httpURI })
+				const client = axios.create({ baseURL: httpURI, httpsAgent })
 				const data = { clientId: CLIENT_IDENTIFIER }
 				const response = await client.post('register-session', data)
 				session = response.data.data
