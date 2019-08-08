@@ -119,8 +119,9 @@ function onResponseEvent(event: string, data?: any) {
 			process.exit(2)
 			break
 		case 'SESSION_INVALID':
-			console.log('Session Identifier Invalid!')
-			process.exit(9)
+			start(true);
+			// console.log('Session Identifier Invalid!')
+			// process.exit(9)
 			break
 	}
 }
@@ -165,9 +166,9 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 	}
 }
 
-async function start() {
+async function start(forceInitialisation: boolean = false) {
 	if (httpURI !== void 0) {
-		await initialiseSession();
+		await initialiseSession(forceInitialisation);
 		ioSpinner.start('Getting devices list...')
 		if (socket !== void 0) {
 			socket.send(createPayload('DEVICES_REQUEST'))
