@@ -15,12 +15,15 @@ const ioSpinner = ora()
 const httpsAgent = new https.Agent({
 	rejectUnauthorized: false
 });
+let USE_SESSION_IDENTIFIER: boolean = true
 let SESSION_IDENTIFIER: string | null = null;
 let socket: WebSocket
 let httpURI: string
 
 function createPayload(event: string, data?: any) {
-	return JSON.stringify({ sessionID: SESSION_IDENTIFIER, event, data })
+	return JSON.stringify(USE_SESSION_IDENTIFIER 
+		? { sessionID: SESSION_IDENTIFIER, event, data }
+		: { event, data })
 }
 
 function randomPulse(): number {
@@ -57,15 +60,20 @@ function main(deviceId: string) {
 			)
 		})
 		.catch(error => {
+			console.log(error)
 			clientSpinner.fail('Emit ERROR   : ' + error.message)
 		})
 }
 
 function onResponseEvent(event: string, data?: any) {
 	switch (event) {
+		case 'onConnection':
+			socket.send(createPayload('onRequestDevices'))
+			break
 		case 'CONNECTION':
 			socket.send(createPayload('DEVICES_REQUEST'))
 			break
+		case 'onRetrieveDevices':
 		case 'DEVICES_RETRIEVE':
 			ioSpinner.stop()
 			const devices: any[] = data
@@ -73,7 +81,7 @@ function onResponseEvent(event: string, data?: any) {
 			for (const device of devices) {
 				choices.push({
 					name: device.name,
-					value: device._id,
+					value: !USE_SESSION_IDENTIFIER ? device.id : (!!device.old_id ? device.old_id : device._id),
 					short: device.name
 				})
 			}
@@ -121,6 +129,7 @@ function onResponseEvent(event: string, data?: any) {
 				})
 			})
 			break
+		case 'onError':
 		case 'ERROR':
 			const message = data.message
 			ioSpinner.fail(message)
@@ -146,7 +155,9 @@ function askAddress() {
 }
 
 async function initialiseSession(forceInitialisation: boolean = false) {
-	if (SESSION_IDENTIFIER === null || forceInitialisation) {
+	if (USE_SESSION_IDENTIFIER && (
+		SESSION_IDENTIFIER === null || forceInitialisation
+	)) {
 		try {
 			let session = null;
 			if (fs.existsSync(sessionFileLocation)) {
@@ -166,8 +177,13 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 			}
 			SESSION_IDENTIFIER = session._id;
 		} catch (error) {
-			console.log(error)
-			process.exit(1)
+			const { response } = error;
+			if (response.status === 404) {
+				USE_SESSION_IDENTIFIER = false
+			} else {
+				console.log(error)
+				process.exit(1)
+			}
 		}
 	}
 }
@@ -177,7 +193,9 @@ async function start(forceInitialisation: boolean = false) {
 		await initialiseSession(forceInitialisation);
 		ioSpinner.start('Getting devices list...')
 		if (socket !== void 0) {
-			socket.send(createPayload('DEVICES_REQUEST'))
+			USE_SESSION_IDENTIFIER 
+				? socket.send(createPayload('DEVICES_REQUEST'))
+				: socket.send(createPayload('onRequestDevices'))
 		} else {
 			const socketURI = httpURI.replace('http', 'ws')
 			socket = new WebSocket(socketURI, {
@@ -186,7 +204,10 @@ async function start(forceInitialisation: boolean = false) {
 				rejectUnauthorized: false
 			})
 			socket.onopen = () => {
-				socket.send(createPayload('CONNECTION'))
+				USE_SESSION_IDENTIFIER 
+					? socket.send(createPayload('CONNECTION'))
+					: socket.send(createPayload('onConnection'))
+				
 			}
 			socket.onmessage = payload => {
 				try {
@@ -196,7 +217,7 @@ async function start(forceInitialisation: boolean = false) {
 					}
 					onResponseEvent(event, data)
 				} catch (error) {
-					onResponseEvent('onError', error)
+					onResponseEvent('ERROR', error)
 				}
 			}
 		}
