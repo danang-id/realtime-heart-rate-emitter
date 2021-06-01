@@ -1,7 +1,7 @@
 import fs from 'fs-extra'
 
 const BIN_FILE = './bin/emitter'
-const ENCODING = 'UTF-8'
+const ENCODING: BufferEncoding = 'utf-8'
 const SHEBANG = '#!/usr/bin/env node\n'
 
 try {
