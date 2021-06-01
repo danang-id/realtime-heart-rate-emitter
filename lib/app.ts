@@ -9,21 +9,27 @@ import ora from 'ora'
 
 dotenv.config()
 
-const CLIENT_IDENTIFIER = process.env.CLIENT_IDENTIFIER;
-const sessionFileLocation: fs.PathLike = path.join(__dirname, '..', 'session.json');
+const CLIENT_IDENTIFIER = process.env.CLIENT_IDENTIFIER
+const sessionFileLocation: fs.PathLike = path.join(
+	__dirname,
+	'..',
+	'session.json'
+)
 const ioSpinner = ora()
 const httpsAgent = new https.Agent({
-	rejectUnauthorized: false
-});
+	rejectUnauthorized: false,
+})
 let USE_SESSION_IDENTIFIER: boolean = true
-let SESSION_IDENTIFIER: string | null = null;
+let SESSION_IDENTIFIER: string | null = null
 let socket: WebSocket
 let httpURI: string
 
 function createPayload(event: string, data?: any) {
-	return JSON.stringify(USE_SESSION_IDENTIFIER 
-		? { sessionID: SESSION_IDENTIFIER, event, data }
-		: { event, data })
+	return JSON.stringify(
+		USE_SESSION_IDENTIFIER
+			? { sessionID: SESSION_IDENTIFIER, event, data }
+			: { event, data }
+	)
 }
 
 function randomPulse(): number {
@@ -32,9 +38,13 @@ function randomPulse(): number {
 
 function onInvalidSessionIdentifier() {
 	ioSpinner.fail('Current Session Identifier Invalid!')
-	console.log('\nPlease restart this app to regenerate a new session identifier.');
-	console.log('If this problem persists, please check CLIENT_IDENTIFIER config in the .env file.');
-	fs.unlinkSync(sessionFileLocation);
+	console.log(
+		'\nPlease restart this app to regenerate a new session identifier.'
+	)
+	console.log(
+		'If this problem persists, please check CLIENT_IDENTIFIER config in the .env file.'
+	)
+	fs.unlinkSync(sessionFileLocation)
 	process.exit(9)
 }
 
@@ -44,12 +54,12 @@ function main(deviceId: string) {
 	const params = {
 		deviceId,
 		pulse: randomPulse(),
-		timestamp: new Date().getTime()
+		timestamp: new Date().getTime(),
 	}
 	clientSpinner.start('Emitting data...')
 	client
 		.get('emit-pulse', { params })
-		.then(data => {
+		.then((data) => {
 			clientSpinner.succeed(
 				'Emit SUCCESS : Device ID ' +
 					params.deviceId +
@@ -59,7 +69,7 @@ function main(deviceId: string) {
 					params.timestamp
 			)
 		})
-		.catch(error => {
+		.catch((error) => {
 			console.log(error)
 			clientSpinner.fail('Emit ERROR   : ' + error.message)
 		})
@@ -81,15 +91,19 @@ function onResponseEvent(event: string, data?: any) {
 			for (const device of devices) {
 				choices.push({
 					name: device.name,
-					value: !USE_SESSION_IDENTIFIER ? device.id : (!!device.old_id ? device.old_id : device._id),
-					short: device.name
+					value: !USE_SESSION_IDENTIFIER
+						? device.id
+						: !!device.old_id
+						? device.old_id
+						: device._id,
+					short: device.name,
 				})
 			}
 			choices.push(new Separator())
 			choices.push({
 				name: 'Exit',
 				value: -1,
-				short: 'Test cancelled'
+				short: 'Test cancelled',
 			})
 			console.log()
 			console.log('Target Address: ' + httpURI)
@@ -97,7 +111,7 @@ function onResponseEvent(event: string, data?: any) {
 				type: 'list',
 				name: 'deviceId',
 				message: "Please select the device you'd like to test",
-				choices
+				choices,
 			}).then((deviceIdAnswer: any) => {
 				const { deviceId } = deviceIdAnswer
 				if (deviceId === -1) {
@@ -108,7 +122,8 @@ function onResponseEvent(event: string, data?: any) {
 					type: 'input',
 					name: 'times',
 					default: 0,
-					message: 'How many times the test should run? (0 = forever)'
+					message:
+						'How many times the test should run? (0 = forever)',
 				}).then((timesAnswer: any) => {
 					let { times } = timesAnswer
 					times = parseInt(times)
@@ -136,7 +151,7 @@ function onResponseEvent(event: string, data?: any) {
 			process.exit(2)
 			break
 		case 'SESSION_INVALID':
-			onInvalidSessionIdentifier();
+			onInvalidSessionIdentifier()
 			break
 	}
 }
@@ -147,7 +162,7 @@ function askAddress() {
 		type: 'input',
 		name: 'httpURI',
 		message: 'Enter target address',
-		default: process.env.TARGET_ADDR || 'https://jantung.masgendut.com'
+		default: process.env.TARGET_ADDR || 'https://jantung.masgendut.com',
 	}).then((answer: any) => {
 		httpURI = answer.httpURI
 		start()
@@ -155,13 +170,17 @@ function askAddress() {
 }
 
 async function initialiseSession(forceInitialisation: boolean = false) {
-	if (USE_SESSION_IDENTIFIER && (
-		SESSION_IDENTIFIER === null || forceInitialisation
-	)) {
+	if (
+		USE_SESSION_IDENTIFIER &&
+		(SESSION_IDENTIFIER === null || forceInitialisation)
+	) {
 		try {
-			let session = null;
+			let session = null
 			if (fs.existsSync(sessionFileLocation)) {
-				const sessionFileContent = fs.readFileSync(sessionFileLocation, { encoding: 'utf-8' })
+				const sessionFileContent = fs.readFileSync(
+					sessionFileLocation,
+					{ encoding: 'utf-8' }
+				)
 				session = JSON.parse(sessionFileContent)
 			} else {
 				const client = axios.create({ baseURL: httpURI, httpsAgent })
@@ -170,14 +189,16 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 				session = response.data.data
 			}
 			if (!session._id) {
-				onInvalidSessionIdentifier();
+				onInvalidSessionIdentifier()
 			} else {
-				const sessionFileContent = JSON.stringify(session, null, 4);
-				fs.writeFileSync(sessionFileLocation, sessionFileContent, { encoding: 'utf-8' })
+				const sessionFileContent = JSON.stringify(session, null, 4)
+				fs.writeFileSync(sessionFileLocation, sessionFileContent, {
+					encoding: 'utf-8',
+				})
 			}
-			SESSION_IDENTIFIER = session._id;
+			SESSION_IDENTIFIER = session._id
 		} catch (error) {
-			const { response } = error;
+			const { response } = error
 			if (response.status === 404) {
 				USE_SESSION_IDENTIFIER = false
 			} else {
@@ -190,10 +211,10 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 
 async function start(forceInitialisation: boolean = false) {
 	if (httpURI !== void 0) {
-		await initialiseSession(forceInitialisation);
+		await initialiseSession(forceInitialisation)
 		ioSpinner.start('Getting devices list...')
 		if (socket !== void 0) {
-			USE_SESSION_IDENTIFIER 
+			USE_SESSION_IDENTIFIER
 				? socket.send(createPayload('DEVICES_REQUEST'))
 				: socket.send(createPayload('onRequestDevices'))
 		} else {
@@ -201,15 +222,14 @@ async function start(forceInitialisation: boolean = false) {
 			socket = new WebSocket(socketURI, {
 				protocolVersion: 13,
 				origin: httpURI,
-				rejectUnauthorized: false
+				rejectUnauthorized: false,
 			})
 			socket.onopen = () => {
-				USE_SESSION_IDENTIFIER 
+				USE_SESSION_IDENTIFIER
 					? socket.send(createPayload('CONNECTION'))
 					: socket.send(createPayload('onConnection'))
-				
 			}
-			socket.onmessage = payload => {
+			socket.onmessage = (payload) => {
 				try {
 					const { event, data } = JSON.parse(payload.data.toString())
 					if (!event) {
