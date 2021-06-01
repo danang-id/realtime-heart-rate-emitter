@@ -12,9 +12,9 @@
 		"prettier": "prettier --write lib/*.ts lib/**/*.ts",
 		"build": "rollup -c && ts-node script/postRollup.ts",
 		"dist": "npm run build && npm run dist:linux && npm run dist:win",
-		"dist:linux": "pkg --targets node10-linux --output dist/emitter-linux64 bin/emitter",
-		"dist:macos": "pkg --targets node10-macos --output dist/emitter-macos bin/emitter",
-		"dist:win": "pkg --targets node10-win-x64 --output dist/emitter-win64 bin/emitter"
+		"dist:linux": "pkg --targets latest-linux-x64 --output dist/emitter-linux64 bin/emitter",
+		"dist:macos": "pkg --targets latest-macos-x64 --output dist/emitter-macos bin/emitter",
+		"dist:win": "pkg --targets latest-win-x64 --output dist/emitter-win64 bin/emitter"
 	},
 	"dependencies": {
 		"axios": "^0.21.1",
