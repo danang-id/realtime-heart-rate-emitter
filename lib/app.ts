@@ -136,7 +136,7 @@ function onResponseEvent(event: string, data?: any) {
 								clearInterval(interval)
 								setTimeout(() => {
 									console.log()
-									start()
+									start().then()
 								}, 1000)
 							}
 						}
@@ -165,7 +165,7 @@ function askAddress() {
 		default: process.env.TARGET_ADDR || 'https://jantung.masgendut.com',
 	}).then((answer: any) => {
 		httpURI = answer.httpURI
-		start()
+		return start()
 	})
 }
 
