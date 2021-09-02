@@ -1,7 +1,7 @@
 import fs from 'fs'
 import https from 'https'
 import path from 'path'
-import axios from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import dotenv from 'dotenv'
 import WebSocket from 'ws'
 import { prompt, Separator } from 'inquirer'
@@ -198,7 +198,7 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 			}
 			SESSION_IDENTIFIER = session._id
 		} catch (error) {
-			const { response } = error
+			const { response } = error as { response: AxiosResponse }
 			if (response.status === 404) {
 				USE_SESSION_IDENTIFIER = false
 			} else {
