@@ -59,7 +59,7 @@ function main(deviceId: string) {
 	clientSpinner.start('Emitting data...')
 	client
 		.get('emit-pulse', { params })
-		.then((data) => {
+		.then((_) => {
 			clientSpinner.succeed(
 				'Emit SUCCESS : Device ID ' +
 					params.deviceId +
