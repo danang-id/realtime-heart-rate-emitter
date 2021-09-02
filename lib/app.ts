@@ -175,7 +175,7 @@ async function initialiseSession(forceInitialisation: boolean = false) {
 		(SESSION_IDENTIFIER === null || forceInitialisation)
 	) {
 		try {
-			let session = null
+			let session: any
 			if (fs.existsSync(sessionFileLocation)) {
 				const sessionFileContent = fs.readFileSync(
 					sessionFileLocation,
